@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini League</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --rl-bg: #0a0e1a;
+    --rl-surface: #111827;
+    --rl-surface2: #1a2235;
+    --rl-border: #1e3a5f;
+    --rl-accent: #00d4ff;
+    --rl-gold: #ffd700;
+    --rl-green: #39d353;
+    --rl-text: #e8f4fd;
+    --rl-muted: #7a9bb5;
+    --rl-neg: #ff4757;
+  }
+  body {
+    background: var(--rl-bg);
+    font-family: 'Orbitron', 'Courier New', monospace;
+    color: var(--rl-text);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+  #app { max-width: 480px; margin: 0 auto; }
+  .screen { display: none; padding: 16px; }
+  .screen.active { display: block; }
+
+  .logo { text-align: center; padding: 24px 0 8px; }
+  .logo h1 { font-size: 22px; font-weight: 700; color: var(--rl-accent); letter-spacing: 3px; text-transform: uppercase; }
+  .logo p { color: var(--rl-muted); font-size: 11px; letter-spacing: 2px; margin-top: 4px; }
+
+  .card { background: var(--rl-surface); border: 1px solid var(--rl-border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .card h3 { color: var(--rl-accent); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+
+  input[type=text] {
+    width: 100%; background: var(--rl-surface2); border: 1px solid var(--rl-border);
+    border-radius: 6px; color: var(--rl-text); padding: 9px 12px; font-size: 13px;
+    font-family: inherit; margin-bottom: 8px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--rl-accent); }
+
+  .btn {
+    display: inline-block; padding: 9px 18px; border-radius: 6px; font-size: 12px;
+    font-family: inherit; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--rl-accent); color: #000; }
+  .btn-secondary { background: var(--rl-surface2); color: var(--rl-text); border: 1px solid var(--rl-border); }
+  .btn-danger { background: var(--rl-neg); color: #fff; }
+  .btn-gold { background: var(--rl-gold); color: #000; }
+  .btn-full { width: 100%; text-align: center; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+
+  .move-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+
+  .move-btn {
+    background: var(--rl-surface2); border: 1px solid var(--rl-border); border-radius: 8px;
+    padding: 8px 10px; cursor: pointer; text-align: left;
+    transition: border-color 0.1s, background 0.1s;
+    font-family: inherit; color: var(--rl-text); position: relative; min-height: 62px;
+  }
+  .move-btn:hover { border-color: var(--rl-accent); background: #162030; }
+  .move-btn.neg-move { border-color: #3a1a1a; }
+  .move-btn.neg-move:hover { border-color: var(--rl-neg); }
+  .move-btn.neg-move .move-name { color: #ff8888; }
+
+  .move-btn-inner { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+  .move-top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .move-name { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; flex: 1; padding-right: 4px; }
+  .move-pts { font-size: 10px; }
+  .move-pts.pos { color: var(--rl-green); }
+  .move-pts.neg { color: var(--rl-neg); }
+
+  .move-count-area { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; }
+
+  .count-display { font-size: 20px; font-weight: 700; color: var(--rl-accent); min-width: 22px; text-align: center; line-height: 1; }
+  .count-display.zero { color: #2a4060; }
+
+  .minus-btn {
+    width: 20px; height: 20px; border-radius: 50%; background: #1e2d42;
+    border: 1px solid #2a4060; color: var(--rl-muted); font-size: 14px; font-weight: 700;
+    line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    padding: 0; font-family: inherit; flex-shrink: 0; transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+  .minus-btn:hover { background: #3a1a1a; border-color: var(--rl-neg); color: var(--rl-neg); }
+  .minus-btn:active { transform: scale(0.9); }
+
+  .section-label { font-size: 10px; letter-spacing: 2px; color: var(--rl-muted); text-transform: uppercase; margin: 10px 0 6px; padding-left: 2px; }
+
+  .score-bar {
+    background: var(--rl-surface); border: 1px solid var(--rl-border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .score-bar .score-num { font-size: 28px; font-weight: 700; color: var(--rl-gold); }
+  .score-bar .player-name { font-size: 12px; color: var(--rl-muted); margin-bottom: 2px; }
+  .score-bar .room-id { font-size: 10px; color: var(--rl-accent); letter-spacing: 1px; }
+
+  .player-pill {
+    display: inline-flex; align-items: center; gap: 6px; background: var(--rl-surface2);
+    border: 1px solid var(--rl-border); border-radius: 20px; padding: 4px 10px; font-size: 11px; margin: 3px;
+  }
+  .player-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rl-green); }
+  .player-pill .dot.host { background: var(--rl-gold); }
+
+  .results-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .results-table th { color: var(--rl-muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--rl-border); text-align: left; }
+  .results-table td { padding: 7px 8px; border-bottom: 1px solid #1a2535; color: var(--rl-text); }
+  .results-table tr.winner td { color: var(--rl-gold); }
+  .results-table .pts-cell { font-weight: 700; text-align: right; }
+
+  .move-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1a2535; font-size: 12px; }
+  .move-row:last-child { border-bottom: none; }
+
+  .alert { padding: 10px 14px; border-radius: 7px; font-size: 12px; margin-bottom: 10px; }
+  .alert-info { background: #0c2040; border: 1px solid var(--rl-accent); color: var(--rl-accent); }
+
+  .host-badge { background: var(--rl-gold); color: #000; font-size: 9px; padding: 2px 6px; border-radius: 3px; letter-spacing: 1px; font-weight: 700; vertical-align: middle; margin-left: 5px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .status-live { background: var(--rl-green); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .tab-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab { flex: 1; padding: 7px; text-align: center; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border-radius: 6px; border: 1px solid var(--rl-border); color: var(--rl-muted); background: var(--rl-surface); transition: all 0.15s; }
+  .tab.active { background: var(--rl-accent); color: #000; border-color: var(--rl-accent); font-weight: 700; }
+
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--rl-accent); color: #000; padding: 8px 20px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; letter-spacing: 1px; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 999; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+  #toast.neg { background: var(--rl-neg); color: #fff; }
+
+  .badge { display: inline-block; background: var(--rl-accent); color: #000; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; }
+
+  #loading-overlay {
+    position: fixed; inset: 0; background: var(--rl-bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; gap: 16px;
+  }
+  #loading-overlay h2 { color: var(--rl-accent); font-size: 18px; letter-spacing: 3px; }
+  #loading-overlay p  { color: var(--rl-muted); font-size: 11px; letter-spacing: 1px; }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--rl-border);
+    border-top-color: var(--rl-accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Live scoreboard banner ── */
+  #live-tracker {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #070b14;
+    border-bottom: 1px solid var(--rl-border);
+    padding: 8px 16px;
+    display: none;
+  }
+  #live-tracker.visible { display: block; }
+  .tracker-label {
+    font-size: 9px; letter-spacing: 2px; color: var(--rl-muted);
+    text-transform: uppercase; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #tracker-players {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  #tracker-players::-webkit-scrollbar { display: none; }
+  .tracker-card {
+    flex-shrink: 0;
+    background: var(--rl-surface2);
+    border: 1px solid var(--rl-border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 72px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .tracker-card.is-me {
+    border-color: var(--rl-accent);
+    background: #0d1e2e;
+  }
+  .tracker-card.is-leading {
+    border-color: var(--rl-gold);
+  }
+  .tracker-card.is-me.is-leading {
+    border-color: var(--rl-gold);
+    background: #1a1500;
+  }
+  .tracker-card .tc-name {
+    font-size: 9px; color: var(--rl-muted); letter-spacing: 0.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 70px; margin-bottom: 3px;
+  }
+  .tracker-card.is-me .tc-name { color: var(--rl-accent); }
+  .tracker-card .tc-pts {
+    font-size: 18px; font-weight: 700; line-height: 1;
+    color: var(--rl-text);
+  }
+  .tracker-card .tc-pts.pos { color: var(--rl-gold); }
+  .tracker-card .tc-pts.neg { color: var(--rl-neg); }
+  .tracker-crown { font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <h2>Mini League</h2>
+  <p>Connecting to Firebase...</p>
+</div>
+
+<div id="app">
+  <!-- LIVE SCOREBOARD BANNER -->
+  <div id="live-tracker">
+    <div class="tracker-label">
+      <span class="status-dot status-live"></span>Live Scores
+    </div>
+    <div id="tracker-players"></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- LOBBY -->
+  <div class="screen" id="screen-lobby">
+    <div class="logo">
+      <h1>Mini League</h1>
+      <p>Rocket League Points Tracker</p>
+    </div>
+    <div style="height:16px"></div>
+    <div class="card">
+      <h3>Create Room</h3>
+      <input type="text" id="host-name" placeholder="Your name" maxlength="16">
+      <button class="btn btn-primary btn-full" onclick="createRoom()">Create &amp; Host</button>
+    </div>
+    <div class="card">
+      <h3>Join Room</h3>
+      <input type="text" id="join-name" placeholder="Your name" maxlength="16">
+      <input type="text" id="join-code" placeholder="Room code" maxlength="6" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-secondary btn-full" onclick="joinRoom()">Join Room</button>
+    </div>
+  </div>
+
+  <!-- WAITING -->
+  <div class="screen" id="screen-waiting">
+    <div class="logo"><h1>Mini League</h1></div>
+    <div style="height:12px"></div>
+    <div class="card">
+      <h3>Room Code</h3>
+      <div style="font-size:32px;font-weight:700;color:var(--rl-accent);letter-spacing:8px;text-align:center;padding:8px 0" id="display-code">------</div>
+      <div style="text-align:center;color:var(--rl-muted);font-size:11px">Share this code with teammates</div>
+    </div>
+    <div class="card">
+      <h3>Players <span id="player-count" class="badge">0</span></h3>
+      <div id="player-list"></div>
+    </div>
+    <div id="host-start-area" style="display:none;margin-top:4px">
+      <button class="btn btn-gold btn-full" onclick="startRound()">Start Round</button>
+    </div>
+    <div id="waiting-msg" class="alert alert-info" style="margin-top:12px">Waiting for host to start the round...</div>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screen-game">
+    <div class="score-bar">
+      <div>
+        <div class="player-name" id="game-player-name">Player</div>
+        <div class="room-id"><span class="status-dot status-live"></span>LIVE &middot; ROOM <span id="game-room-code">----</span></div>
+      </div>
+      <div style="text-align:right">
+        <div class="score-num" id="live-score">0</div>
+        <div style="font-size:10px;color:var(--rl-muted)">PTS</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('offense')">Offense</div>
+      <div class="tab" onclick="switchTab('teamplay')">Teamplay</div>
+      <div class="tab" onclick="switchTab('penalty')">Penalty</div>
+    </div>
+
+    <div id="tab-offense">
+      <div class="section-label">High Value</div>
+      <div class="move-grid" id="grid-offense-high"></div>
+      <div class="section-label">Goals</div>
+      <div class="move-grid" id="grid-offense-goals"></div>
+    </div>
+    <div id="tab-teamplay" style="display:none">
+      <div class="section-label">Teamplay Moves</div>
+      <div class="move-grid" id="grid-teamplay"></div>
+    </div>
+    <div id="tab-penalty" style="display:none">
+      <div class="section-label">Penalties</div>
+      <div class="move-grid" id="grid-penalty"></div>
+    </div>
+
+    <div id="host-end-area" style="display:none;margin-top:16px">
+      <button class="btn btn-danger btn-full" onclick="endRound()">End Round</button>
+    </div>
+    <div id="waiting-for-end" class="alert alert-info" style="margin-top:12px;display:none">Waiting for host to end the round...</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen" id="screen-results">
+    <div class="logo"><h1>Round Over</h1></div>
+    <div style="height:12px"></div>
+    <div class="card">
+      <h3>Leaderboard</h3>
+      <table class="results-table" id="results-table"></table>
+    </div>
+    <div class="card">
+      <h3>Your Moves</h3>
+      <div id="my-moves-list"></div>
+    </div>
+    <button class="btn btn-secondary btn-full" onclick="backToLobby()" style="margin-top:8px">New Game</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, get, update, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ── Firebase config ──────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyDZkoCMm08Qbh0lzgjww126VZKJBvUfHk0",
+  authDomain:        "mini-league---rl.firebaseapp.com",
+  projectId:         "mini-league---rl",
+  storageBucket:     "mini-league---rl.firebasestorage.app",
+  messagingSenderId: "63787342831",
+  appId:             "1:63787342831:web:d7ab8eb45f80a04cd7b41a",
+  databaseURL:       "https://mini-league---rl-default-rtdb.firebaseio.com"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db          = getDatabase(firebaseApp);
+
+// ── Move definitions ─────────────────────────────────────────────
+const MOVES = {
+  offense_high: [
+    { id:'breezi',       name:'Breezi',            pts:8  },
+    { id:'flipreset',    name:'Flip Reset',         pts:7  },
+    { id:'musty',        name:'Musty',              pts:7  },
+    { id:'pinch',        name:'Pinch',              pts:6  },
+    { id:'redirect',     name:'Redirect',           pts:6  },
+    { id:'fake',         name:'Fake',               pts:5  },
+    { id:'ceiling',      name:'Ceiling Shot',       pts:5  },
+    { id:'double',       name:'Double',             pts:5  },
+    { id:'airdribble',   name:'Air Dribble',        pts:4  },
+    { id:'gndflick',     name:'Ground Flick',       pts:4  },
+    { id:'backboard',    name:'Backboard Out-In',   pts:3  },
+    { id:'dunk',         name:'Dunk',               pts:3  },
+    { id:'hardangle',    name:'Hard Angle',         pts:2  },
+    { id:'bumpdemo',     name:'Bump/Demo to Goal',  pts:2  },
+  ],
+  offense_goals: [
+    { id:'anygoal',      name:'Any Other Goal',     pts:1  },
+  ],
+  teamplay: [
+    { id:'dime',         name:'Dime Pass',          pts:3  },
+    { id:'epicsave',     name:'Epic Save',          pts:3  },
+  ],
+  penalty: [
+    { id:'blocktm',      name:'Blocking Teammate',  pts:-5 },
+    { id:'owngoal',      name:'Own Goal',           pts:-5 },
+    { id:'getfaked',     name:'Get Faked',          pts:-5 },
+    { id:'ezsave',       name:'Ez Save Fail',       pts:-3 },
+    { id:'lessthan100',  name:'Less Than 100',      pts:-3 },
+    { id:'missedopen',   name:'Missed Open Goal',   pts:-2 },
+    { id:'whiffkickoff', name:'Whiffed Kickoff',    pts:-2 },
+  ]
+};
+
+const ALL_MOVES = [
+  ...MOVES.offense_high,
+  ...MOVES.offense_goals,
+  ...MOVES.teamplay,
+  ...MOVES.penalty
+];
+
+// ── App state ────────────────────────────────────────────────────
+let state = {
+  role: null, playerName: '', roomCode: '', playerId: null,
+  counts: {}, currentTab: 'offense', roundEnded: false,
+  unsubscribe: null
+};
+
+// ── Ref helpers ──────────────────────────────────────────────────
+const roomRef   = code      => ref(db, `rooms/${code}`);
+const playerRef = (code,id) => ref(db, `rooms/${code}/players/${id}`);
+
+// ── UI helpers ───────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function toast(msg, neg = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (neg ? ' neg' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.className = '', 1800);
+}
+
+function calcTotal(counts) {
+  let total = 0;
+  for (const [id, cnt] of Object.entries(counts || {})) {
+    const move = ALL_MOVES.find(m => m.id === id);
+    if (move) total += move.pts * cnt;
+  }
+  return total;
+}
+
+function genCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+function genId()   { return Math.random().toString(36).substring(2, 14); }
+
+// ── Create Room ──────────────────────────────────────────────────
+async function createRoom() {
+  const name = document.getElementById('host-name').value.trim();
+  if (!name) { toast('Enter your name', true); return; }
+  const code = genCode();
+  const pid  = genId();
+  state.role = 'host'; state.playerName = name;
+  state.roomCode = code; state.playerId = pid; state.counts = {};
+
+  await set(roomRef(code), {
+    code,
+    status: 'waiting',
+    hostId: pid,
+    createdAt: Date.now(),
+    players: { [pid]: { id: pid, name, counts: {}, total: 0 } }
+  });
+
+  showWaitingScreen();
+}
+
+// ── Join Room ────────────────────────────────────────────────────
+async function joinRoom() {
+  const name = document.getElementById('join-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!name) { toast('Enter your name', true); return; }
+  if (!code) { toast('Enter room code', true); return; }
+
+  const snap = await get(roomRef(code));
+  if (!snap.exists()) { toast('Room not found', true); return; }
+
+  const room = snap.val();
+  if (room.status === 'ended') { toast('Round already ended', true); return; }
+
+  const pid = genId();
+  state.role = 'player'; state.playerName = name;
+  state.roomCode = code; state.playerId = pid; state.counts = {};
+
+  await set(playerRef(code, pid), { id: pid, name, counts: {}, total: 0 });
+
+  room.status === 'playing' ? showGameScreen() : showWaitingScreen();
+}
+
+// ── Waiting Screen ───────────────────────────────────────────────
+function showWaitingScreen() {
+  showScreen('waiting');
+  document.getElementById('display-code').textContent = state.roomCode;
+  if (state.role === 'host') {
+    document.getElementById('host-start-area').style.display = 'block';
+    document.getElementById('waiting-msg').style.display = 'none';
+  }
+  listenToRoom('waiting');
+}
+
+function renderWaitingPlayers(room) {
+  const players = Object.values(room.players || {});
+  document.getElementById('player-count').textContent = players.length;
+  document.getElementById('player-list').innerHTML = players.map(p => {
+    const isHost = p.id === room.hostId;
+    return `<div class="player-pill">
+      <div class="dot ${isHost ? 'host' : ''}"></div>
+      ${p.name}${isHost ? '<span class="host-badge">HOST</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Start Round ──────────────────────────────────────────────────
+async function startRound() {
+  await update(roomRef(state.roomCode), { status: 'playing' });
+  stopListening();
+  showGameScreen();
+}
+
+// ── Game Screen ──────────────────────────────────────────────────
+async function showGameScreen() {
+  showScreen('game');
+  document.getElementById('game-player-name').textContent = state.playerName;
+  document.getElementById('game-room-code').textContent   = state.roomCode;
+  if (state.role === 'host') document.getElementById('host-end-area').style.display = 'block';
+  else document.getElementById('waiting-for-end').style.display = 'block';
+  buildMoveGrids();
+  updateScoreDisplay();
+  showTracker();
+  // Seed tracker immediately then keep it live
+  const snap = await get(roomRef(state.roomCode));
+  if (snap.exists()) renderLiveTracker(snap.val());
+  listenToRoom('game');
+}
+
+function buildMoveGrids() {
+  buildGrid('grid-offense-high',  MOVES.offense_high,  false);
+  buildGrid('grid-offense-goals', MOVES.offense_goals, false);
+  buildGrid('grid-teamplay',      MOVES.teamplay,      false);
+  buildGrid('grid-penalty',       MOVES.penalty,       true);
+}
+
+function buildGrid(containerId, moves, isNeg) {
+  document.getElementById(containerId).innerHTML = moves.map(m => `
+    <div class="move-btn ${isNeg ? 'neg-move' : ''}" onclick="logMove('${m.id}',${m.pts})">
+      <div class="move-btn-inner">
+        <div class="move-top-row">
+          <span class="move-name">${m.name}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+          <span class="move-pts ${m.pts > 0 ? 'pos' : 'neg'}">${m.pts > 0 ? '+' : ''}${m.pts} pts</span>
+          <div class="move-count-area" onclick="event.stopPropagation()">
+            <button class="minus-btn" onclick="removeMove('${m.id}')" title="Undo">−</button>
+            <span class="count-display zero" id="cnt-${m.id}">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function logMove(moveId, pts) {
+  if (state.roundEnded) return;
+  state.counts[moveId] = (state.counts[moveId] || 0) + 1;
+  refreshCount(moveId);
+  updateScoreDisplay();
+  await saveMyData();
+  toast((pts > 0 ? '+' : '') + pts + ' pts!', pts < 0);
+}
+
+async function removeMove(moveId) {
+  if (state.roundEnded) return;
+  if (!state.counts[moveId] || state.counts[moveId] <= 0) return;
+  state.counts[moveId]--;
+  refreshCount(moveId);
+  updateScoreDisplay();
+  await saveMyData();
+  toast('Removed', true);
+}
+
+function refreshCount(moveId) {
+  const el = document.getElementById('cnt-' + moveId);
+  if (!el) return;
+  const val = state.counts[moveId] || 0;
+  el.textContent = val;
+  el.className = 'count-display' + (val === 0 ? ' zero' : '');
+}
+
+function updateScoreDisplay() {
+  const total = calcTotal(state.counts);
+  const el = document.getElementById('live-score');
+  el.textContent = total;
+  el.style.color = total >= 0 ? 'var(--rl-gold)' : 'var(--rl-neg)';
+}
+
+async function saveMyData() {
+  await update(playerRef(state.roomCode, state.playerId), {
+    counts: state.counts,
+    total:  calcTotal(state.counts)
+  });
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  ['offense', 'teamplay', 'penalty'].forEach((t, i) => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.querySelectorAll('.tab')[i].classList.toggle('active', t === tab);
+  });
+}
+
+function renderLiveTracker(room) {
+  const players = Object.values(room.players || {});
+  const sorted  = [...players].sort((a, b) => (b.total || 0) - (a.total || 0));
+  const leadPts = sorted.length ? (sorted[0].total || 0) : 0;
+
+  document.getElementById('tracker-players').innerHTML = sorted.map(p => {
+    const pts    = p.total || 0;
+    const isMe   = p.id === state.playerId;
+    const isLead = pts === leadPts && pts !== 0;
+    const ptsClass = pts > 0 ? 'pos' : pts < 0 ? 'neg' : '';
+    return `<div class="tracker-card ${isMe ? 'is-me' : ''} ${isLead ? 'is-leading' : ''}">
+      <div class="tc-name">${isMe ? 'You' : p.name}</div>
+      <div class="tc-pts ${ptsClass}">${pts > 0 ? '+' : ''}${pts}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Show / hide the tracker banner ──────────────────────────────
+function showTracker()  { document.getElementById('live-tracker').classList.add('visible'); }
+function hideTracker()  { document.getElementById('live-tracker').classList.remove('visible'); }
+
+// ── End Round ────────────────────────────────────────────────────
+async function endRound() {
+  await update(roomRef(state.roomCode), { status: 'ended' });
+  stopListening();
+  const snap = await get(roomRef(state.roomCode));
+  showResults(snap.val());
+}
+
+// ── Results ──────────────────────────────────────────────────────
+function showResults(room) {
+  state.roundEnded = true;
+  stopListening();
+  hideTracker();
+  showScreen('results');
+
+  const players = Object.values(room.players || {});
+  const sorted  = [...players].sort((a, b) => (b.total || 0) - (a.total || 0));
+
+  document.getElementById('results-table').innerHTML =
+    `<tr><th>#</th><th>Player</th><th style="text-align:right">Pts</th></tr>` +
+    sorted.map((p, i) => `
+      <tr class="${i === 0 ? 'winner' : ''}">
+        <td style="color:${i === 0 ? 'var(--rl-gold)' : 'var(--rl-muted)'}">${i === 0 ? '&#9733;' : i + 1}</td>
+        <td>${p.name}${p.id === room.hostId ? '<span class="host-badge">HOST</span>' : ''}</td>
+        <td class="pts-cell" style="color:${(p.total || 0) >= 0 ? 'var(--rl-green)' : 'var(--rl-neg)'}">${p.total || 0}</td>
+      </tr>`).join('');
+
+  const me      = players.find(p => p.id === state.playerId);
+  const ml      = document.getElementById('my-moves-list');
+  const entries = me && me.counts ? Object.entries(me.counts).filter(([, c]) => c > 0) : [];
+
+  if (entries.length > 0) {
+    ml.innerHTML = entries.map(([id, cnt]) => {
+      const move = ALL_MOVES.find(m => m.id === id); if (!move) return '';
+      const sub  = move.pts * cnt;
+      return `<div class="move-row">
+        <span>${move.name} <span style="color:var(--rl-muted)">x${cnt}</span></span>
+        <span style="color:${sub >= 0 ? 'var(--rl-green)' : 'var(--rl-neg)'};font-weight:700">${sub >= 0 ? '+' : ''}${sub}</span>
+      </div>`;
+    }).join('');
+  } else {
+    ml.innerHTML = '<div style="color:var(--rl-muted);font-size:12px;text-align:center;padding:12px">No moves recorded</div>';
+  }
+}
+
+// ── Firebase real-time listener ──────────────────────────────────
+function listenToRoom(mode) {
+  stopListening();
+  const r = roomRef(state.roomCode);
+
+  const handler = snap => {
+    if (!snap.exists()) return;
+    const room = snap.val();
+    if (mode === 'waiting') {
+      renderWaitingPlayers(room);
+      if (room.status === 'playing' && state.role !== 'host') {
+        stopListening();
+        showGameScreen();
+      }
+    } else if (mode === 'game') {
+      renderLiveTracker(room);
+      if (room.status === 'ended') showResults(room);
+    }
+  };
+
+  onValue(r, handler);
+  state.unsubscribe = () => off(r, 'value', handler);
+}
+
+function stopListening() {
+  if (state.unsubscribe) { state.unsubscribe(); state.unsubscribe = null; }
+}
+
+// ── Back to lobby ────────────────────────────────────────────────
+function backToLobby() {
+  stopListening();
+  hideTracker();
+  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubscribe:null };
+  showScreen('lobby');
+}
+
+// ── Expose to HTML onclick handlers ─────────────────────────────
+window.createRoom  = createRoom;
+window.joinRoom    = joinRoom;
+window.startRound  = startRound;
+window.endRound    = endRound;
+window.logMove     = logMove;
+window.removeMove  = removeMove;
+window.switchTab   = switchTab;
+window.backToLobby = backToLobby;
+
+// ── Ready ────────────────────────────────────────────────────────
+document.getElementById('loading-overlay').style.display = 'none';
+showScreen('lobby');
+</script>
+</body>
+</html>
