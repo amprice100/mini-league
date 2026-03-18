@@ -62,7 +62,7 @@
       flex-shrink: 0;
       position: sticky;
       top: 0;
-      height: 420px;
+      height: 600px;
       display: flex;
       flex-direction: column;
       border-left: 1px solid var(--rl-border);
@@ -75,7 +75,7 @@
     .game-feed {
       border-top: 1px solid var(--rl-border);
       background: #070b14;
-      height: 200px;
+      height: 320px;
       display: flex;
       flex-direction: column;
     }
@@ -107,9 +107,10 @@
   #feed-list::-webkit-scrollbar-thumb { background: var(--rl-border); border-radius: 2px; }
 
   .feed-item {
-    padding: 6px 12px;
+    padding: 5px 12px;
     border-bottom: 1px solid #0d1525;
     animation: feedIn 0.3s ease;
+    flex-shrink: 0;
   }
   @keyframes feedIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
@@ -503,7 +504,7 @@ const ALL_MOVES = [
 let state = {
   role: null, playerName: '', roomCode: '', playerId: null,
   counts: {}, currentTab: 'offense', roundEnded: false,
-  unsubRoom: null, unsubFeed: null
+  unsubRoom: null, unsubFeed: null, renderedFeedIds: new Set()
 };
 
 // ── Firebase refs ─────────────────────────────────────────────────
@@ -740,45 +741,65 @@ function hideTracker() { document.getElementById('live-tracker').classList.remov
 function listenToFeed() {
   if (state.unsubFeed) { state.unsubFeed(); state.unsubFeed = null; }
 
-  const q = query(feedRef(state.roomCode), orderByChild('ts'), limitToLast(15));
+  // Track what we've already rendered
+  state.renderedFeedIds = new Set();
+
+  // Reset feed display
+  const container = document.getElementById('feed-list');
+  container.innerHTML = '<div class="feed-empty" id="feed-empty-msg">No moves yet...</div>';
+
+  const q = query(feedRef(state.roomCode), orderByChild('ts'), limitToLast(20));
 
   const handler = snap => {
-    const items = [];
-    snap.forEach(child => items.push(child.val()));
-    renderFeed(items.reverse()); // newest first
+    const container = document.getElementById('feed-list');
+    const newItems = [];
+
+    snap.forEach(child => {
+      const key = child.key;
+      if (!state.renderedFeedIds.has(key)) {
+        state.renderedFeedIds.add(key);
+        newItems.push({ key, ...child.val() });
+      }
+    });
+
+    if (newItems.length === 0) return;
+
+    // Remove "no moves" placeholder if present
+    const placeholder = document.getElementById('feed-empty-msg');
+    if (placeholder) placeholder.remove();
+
+    // Prepend each new item to the top
+    newItems.sort((a, b) => b.ts - a.ts); // newest first
+    newItems.forEach(item => {
+      const isMe     = item.playerId === state.playerId;
+      const pts      = item.pts;
+      const ptsClass = pts > 0 ? 'pos' : pts < 0 ? 'neg' : '';
+      const label    = item.removed
+        ? `<span style="color:var(--rl-muted);font-size:9px">[removed]</span> ${item.moveName}`
+        : item.moveName;
+
+      const div = document.createElement('div');
+      div.className = `feed-item ${isMe ? 'fi-me' : ''}`;
+      div.innerHTML = `
+        <div class="fi-player">${isMe ? 'You' : item.playerName}</div>
+        <div class="fi-move">${label}</div>
+        <div class="fi-pts ${ptsClass}">${pts > 0 ? '+' : ''}${pts} pts</div>
+        <div class="fi-time">${formatTime(item.ts)}</div>
+      `;
+      container.insertBefore(div, container.firstChild);
+    });
+
+    // Trim to max 20 items
+    while (container.children.length > 20) {
+      container.removeChild(container.lastChild);
+    }
+
+    // Snap to top so newest is always visible
+    container.scrollTop = 0;
   };
 
   onValue(q, handler);
   state.unsubFeed = () => off(q, 'value', handler);
-}
-
-function renderFeed(items) {
-  const container = document.getElementById('feed-list');
-  if (!items || items.length === 0) {
-    container.innerHTML = '<div class="feed-empty">No moves yet...</div>';
-    return;
-  }
-
-  // newest first — items arrive oldest-first from Firebase so reverse them
-  const ordered = [...items].reverse().slice(0, 15);
-
-  container.innerHTML = ordered.map(item => {
-    const isMe     = item.playerId === state.playerId;
-    const pts      = item.pts;
-    const ptsClass = pts > 0 ? 'pos' : pts < 0 ? 'neg' : '';
-    const label    = item.removed
-      ? `<span style="color:var(--rl-muted);font-size:9px">[removed]</span> ${item.moveName}`
-      : item.moveName;
-    return `<div class="feed-item ${isMe ? 'fi-me' : ''}">
-      <div class="fi-player">${isMe ? 'You' : item.playerName}</div>
-      <div class="fi-move">${label}</div>
-      <div class="fi-pts ${ptsClass}">${pts > 0 ? '+' : ''}${pts} pts</div>
-      <div class="fi-time">${formatTime(item.ts)}</div>
-    </div>`;
-  }).join('');
-
-  // always snap back to top so newest entry is visible
-  container.scrollTop = 0;
 }
 
 // ── End Round ─────────────────────────────────────────────────────
@@ -860,7 +881,7 @@ function stopListening() {
 function backToLobby() {
   stopListening();
   hideTracker();
-  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubRoom:null, unsubFeed:null };
+  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubRoom:null, unsubFeed:null, renderedFeedIds:new Set() };
   showScreen('lobby');
 }
 
