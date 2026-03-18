@@ -439,7 +439,7 @@
 
 <script type="module">
 import { initializeApp }                                        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, get, update, push, onValue, off, query, orderByChild, limitToLast }
+import { getDatabase, ref, set, get, update, push, onValue, onChildAdded, off, query, orderByChild, limitToLast }
                                                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ── Firebase config ───────────────────────────────────────────────
@@ -504,7 +504,7 @@ const ALL_MOVES = [
 let state = {
   role: null, playerName: '', roomCode: '', playerId: null,
   counts: {}, currentTab: 'offense', roundEnded: false,
-  unsubRoom: null, unsubFeed: null, renderedFeedIds: new Set(), feedInitialized: false
+  unsubRoom: null, unsubFeed: null, feedItems: [], feedInitialized: false
 };
 
 // ── Firebase refs ─────────────────────────────────────────────────
@@ -738,92 +738,75 @@ function showTracker() { document.getElementById('live-tracker').classList.add('
 function hideTracker() { document.getElementById('live-tracker').classList.remove('visible'); }
 
 // ── Activity Feed listener ────────────────────────────────────────
+// Uses onChildAdded so each item fires exactly ONCE for every client.
+// We keep a local array of up to 15 items and re-render on every addition.
 function listenToFeed() {
   if (state.unsubFeed) { state.unsubFeed(); state.unsubFeed = null; }
 
-  state.renderedFeedIds = new Set();
-  state.feedInitialized = false;
+  state.feedItems = [];
+  renderFeed();
 
-  const container = document.getElementById('feed-list');
-  container.innerHTML = '<div class="feed-empty" id="feed-empty-msg">No moves yet...</div>';
-
-  const q = query(feedRef(state.roomCode), orderByChild('ts'), limitToLast(20));
+  // limitToLast(15) means on connect Firebase fires onChildAdded for the
+  // last 15 existing items (oldest→newest), then once per new item after.
+  const q = query(feedRef(state.roomCode), orderByChild('ts'), limitToLast(15));
 
   const handler = snap => {
-    const container = document.getElementById('feed-list');
+    const item = snap.val();
+    if (!item) return;
 
-    if (!state.feedInitialized) {
-      // First snapshot — render all existing items oldest→newest (so newest ends up on top)
-      state.feedInitialized = true;
-      const allItems = [];
-      snap.forEach(child => {
-        state.renderedFeedIds.add(child.key);
-        allItems.push(child.val());
-      });
+    // Build display object
+    const entry = {
+      key:        snap.key,
+      playerName: item.playerName,
+      playerId:   item.playerId,
+      moveName:   item.moveName,
+      pts:        item.pts,
+      removed:    item.removed || false,
+      ts:         item.ts
+    };
 
-      if (allItems.length === 0) return;
+    // Avoid duplicates (can happen on reconnect)
+    if (state.feedItems.some(f => f.key === entry.key)) return;
 
-      const placeholder = document.getElementById('feed-empty-msg');
-      if (placeholder) placeholder.remove();
+    // Add to front (newest first)
+    state.feedItems.unshift(entry);
 
-      // Sort newest first and render top-down
-      allItems.sort((a, b) => b.ts - a.ts);
-      allItems.forEach(item => {
-        container.appendChild(makeFeedEl(item));
-      });
+    // Keep max 15
+    if (state.feedItems.length > 15) state.feedItems.pop();
 
-      container.scrollTop = 0;
-      return;
-    }
-
-    // Subsequent snapshots — only add brand new items
-    const newItems = [];
-    snap.forEach(child => {
-      if (!state.renderedFeedIds.has(child.key)) {
-        state.renderedFeedIds.add(child.key);
-        newItems.push(child.val());
-      }
-    });
-
-    if (newItems.length === 0) return;
-
-    const placeholder = document.getElementById('feed-empty-msg');
-    if (placeholder) placeholder.remove();
-
-    // Prepend newest items to top
-    newItems.sort((a, b) => b.ts - a.ts);
-    newItems.forEach(item => {
-      container.insertBefore(makeFeedEl(item), container.firstChild);
-    });
-
-    // Trim to 20
-    while (container.children.length > 20) {
-      container.removeChild(container.lastChild);
-    }
-
-    container.scrollTop = 0;
+    renderFeed();
   };
 
-  onValue(q, handler);
-  state.unsubFeed = () => off(q, 'value', handler);
+  onChildAdded(q, handler);
+  state.unsubFeed = () => off(q, 'child_added', handler);
 }
 
-function makeFeedEl(item) {
-  const isMe     = item.playerId === state.playerId;
-  const pts      = item.pts;
-  const ptsClass = pts > 0 ? 'pos' : pts < 0 ? 'neg' : '';
-  const label    = item.removed
-    ? `<span style="color:var(--rl-muted);font-size:9px">[removed]</span> ${item.moveName}`
-    : item.moveName;
-  const div = document.createElement('div');
-  div.className = `feed-item ${isMe ? 'fi-me' : ''}`;
-  div.innerHTML = `
-    <div class="fi-player">${isMe ? 'You' : item.playerName}</div>
-    <div class="fi-move">${label}</div>
-    <div class="fi-pts ${ptsClass}">${pts > 0 ? '+' : ''}${pts} pts</div>
-    <div class="fi-time">${formatTime(item.ts)}</div>
-  `;
-  return div;
+function renderFeed() {
+  const container = document.getElementById('feed-list');
+  if (!container) return;
+
+  if (state.feedItems.length === 0) {
+    container.innerHTML = '<div class="feed-empty">No moves yet...</div>';
+    return;
+  }
+
+  container.innerHTML = state.feedItems.map(item => {
+    const isMe     = item.playerId === state.playerId;
+    const pts      = item.pts;
+    const ptsClass = pts > 0 ? 'pos' : pts < 0 ? 'neg' : '';
+    const moveLine = item.removed
+      ? `<span style="color:var(--rl-muted);font-size:9px">[removed] </span>${item.moveName}`
+      : item.moveName;
+    return `<div class="feed-item ${isMe ? 'fi-me' : ''}">
+      <div class="fi-player">${isMe ? 'You' : item.playerName}</div>
+      <div class="fi-move">${moveLine}</div>
+      <div class="fi-pts ${ptsClass}">${pts > 0 ? '+' : ''}${pts} pts</div>
+      <div class="fi-time">${formatTime(item.ts)}</div>
+    </div>`;
+  }).join('');
+
+  // Always show newest (top) on update
+  container.scrollTop = 0;
 }
 
 // ── End Round ─────────────────────────────────────────────────────
@@ -905,7 +888,7 @@ function stopListening() {
 function backToLobby() {
   stopListening();
   hideTracker();
-  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubRoom:null, unsubFeed:null, renderedFeedIds:new Set(), feedInitialized:false };
+  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubRoom:null, unsubFeed:null, feedItems:[] };
   showScreen('lobby');
 }
 
