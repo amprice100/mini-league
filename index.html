@@ -383,22 +383,19 @@
         </div>
 
         <div class="tab-bar">
-          <div class="tab active" onclick="switchTab('offense')">Offense</div>
-          <div class="tab" onclick="switchTab('teamplay')">Teamplay</div>
-          <div class="tab" onclick="switchTab('penalty')">Penalty</div>
+          <div class="tab active" onclick="switchTab('achievements')">Achievements</div>
+          <div class="tab" onclick="switchTab('penalties')">Penalties</div>
         </div>
 
-        <div id="tab-offense">
-          <div class="section-label">High Value</div>
-          <div class="move-grid" id="grid-offense-high"></div>
-          <div class="section-label">Goals</div>
-          <div class="move-grid" id="grid-offense-goals"></div>
-        </div>
-        <div id="tab-teamplay" style="display:none">
-          <div class="section-label">Teamplay Moves</div>
+        <div id="tab-achievements">
+          <div class="section-label">Offense</div>
+          <div class="move-grid" id="grid-offense"></div>
+          <div class="section-label">Teamplay</div>
           <div class="move-grid" id="grid-teamplay"></div>
+          <div class="section-label">Defense</div>
+          <div class="move-grid" id="grid-defense"></div>
         </div>
-        <div id="tab-penalty" style="display:none">
+        <div id="tab-penalties" style="display:none">
           <div class="section-label">Penalties</div>
           <div class="move-grid" id="grid-penalty"></div>
         </div>
@@ -458,7 +455,7 @@ const db          = getDatabase(firebaseApp);
 
 // ── Move definitions ──────────────────────────────────────────────
 const MOVES = {
-  offense_high: [
+  offense: [
     { id:'flipreset',    name:'Flip Reset',         pts:7  },
     { id:'musty',        name:'Musty',              pts:7  },
     { id:'pinch',        name:'Pinch',              pts:6  },
@@ -475,13 +472,14 @@ const MOVES = {
     { id:'dunk',         name:'Dunk',               pts:2  },
     { id:'hardangle',    name:'Hard Angle',         pts:2  },
     { id:'bumpdemo',     name:'Bump/Demo to Goal',  pts:2  },
-  ],
-  offense_goals: [
     { id:'anygoal',      name:'Any Other Goal',     pts:1  },
   ],
   teamplay: [
     { id:'dime',         name:'Dime Pass',          pts:3  },
     { id:'epicsave',     name:'Epic Save',          pts:3  },
+  ],
+  defense: [
+    { id:'anysave',      name:'Any Save',           pts:1  },
   ],
   penalty: [
     { id:'blocktm',      name:'Blocking Teammate',  pts:-5 },
@@ -496,14 +494,14 @@ const MOVES = {
 };
 
 const ALL_MOVES = [
-  ...MOVES.offense_high, ...MOVES.offense_goals,
-  ...MOVES.teamplay,     ...MOVES.penalty
+  ...MOVES.offense, ...MOVES.teamplay,
+  ...MOVES.defense, ...MOVES.penalty
 ];
 
 // ── App state ─────────────────────────────────────────────────────
 let state = {
   role: null, playerName: '', roomCode: '', playerId: null,
-  counts: {}, currentTab: 'offense', roundEnded: false,
+  counts: {}, currentTab: 'achievements', roundEnded: false,
   unsubRoom: null, unsubFeed: null, feedItems: [], feedInitialized: false
 };
 
@@ -625,10 +623,10 @@ async function showGameScreen() {
 }
 
 function buildMoveGrids() {
-  buildGrid('grid-offense-high',  MOVES.offense_high,  false);
-  buildGrid('grid-offense-goals', MOVES.offense_goals, false);
-  buildGrid('grid-teamplay',      MOVES.teamplay,      false);
-  buildGrid('grid-penalty',       MOVES.penalty,       true);
+  buildGrid('grid-offense',  MOVES.offense,  false);
+  buildGrid('grid-teamplay', MOVES.teamplay, false);
+  buildGrid('grid-defense',  MOVES.defense,  false);
+  buildGrid('grid-penalty',  MOVES.penalty,  true);
 }
 
 function buildGrid(containerId, moves, isNeg) {
@@ -710,7 +708,7 @@ async function saveMyData() {
 
 function switchTab(tab) {
   state.currentTab = tab;
-  ['offense', 'teamplay', 'penalty'].forEach((t, i) => {
+  ['achievements', 'penalties'].forEach((t, i) => {
     document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', t === tab);
   });
@@ -888,7 +886,7 @@ function stopListening() {
 function backToLobby() {
   stopListening();
   hideTracker();
-  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'offense', roundEnded:false, unsubRoom:null, unsubFeed:null, feedItems:[] };
+  state = { role:null, playerName:'', roomCode:'', playerId:null, counts:{}, currentTab:'achievements', roundEnded:false, unsubRoom:null, unsubFeed:null, feedItems:[] };
   showScreen('lobby');
 }
 
